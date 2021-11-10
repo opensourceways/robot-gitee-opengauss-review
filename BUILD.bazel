@@ -2,12 +2,12 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 load("@github_opensourceways_community_robot_lib//:image.bzl", "build_plugin_image", "push_image", "image_tags")
 load("@bazel_gazelle//:def.bzl", "gazelle")
 
-# gazelle:prefix github.com/opensourceways/robot-gitee-lgtm
+# gazelle:prefix github.com/opensourceways/robot-opengauss-gitee-review
 gazelle(name = "gazelle")
 
 build_plugin_image(
     name = "image",
-    plugin = "robot-gitee-lgtm",
+    plugin = "robot-opengauss-gitee-review",
 )
 
 push_image(
@@ -23,8 +23,9 @@ go_library(
         "config.go",
         "main.go",
         "robot.go",
+	"lgtm.go",
     ],
-    importpath = "github.com/opensourceways/robot-gitee-lgtm",
+    importpath = "github.com/opensourceways/robot-opengauss-gitee-review",
     visibility = ["//visibility:private"],
     deps = [
         "@com_gitee_openeuler_go_gitee//gitee:go_default_library",
@@ -39,7 +40,7 @@ go_library(
 )
 
 go_binary(
-    name = "robot-gitee-lgtm",
+    name = "robot-opengauss-gitee-review",
     embed = [":go_default_library"],
     visibility = ["//visibility:public"],
 )

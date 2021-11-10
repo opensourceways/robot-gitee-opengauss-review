@@ -31,7 +31,7 @@ func gatherOptions(fs *flag.FlagSet, args ...string) options {
 	o.gitee.AddFlags(fs)
 	o.plugin.AddFlags(fs)
 
-	fs.Parse(args)
+	_ = fs.Parse(args)
 	return o
 }
 
