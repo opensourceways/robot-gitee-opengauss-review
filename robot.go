@@ -50,9 +50,11 @@ func (bot *robot) getConfig(cfg libconfig.PluginConfig, org, repo string) (*botC
 	if !ok {
 		return nil, fmt.Errorf("can't convert to configuration")
 	}
+
 	if bc := c.configFor(org, repo); bc != nil {
 		return bc, nil
 	}
+
 	return nil, fmt.Errorf("no %s robot config for this repo:%s/%s", botName, org, repo)
 }
 
@@ -85,13 +87,18 @@ func (bot *robot) handleNoteEvent(e *sdk.NoteEvent, cfg libconfig.PluginConfig, 
 	}
 
 	if err := bot.handleLGTM(prNe, cfg, log); err != nil {
-		return err
+		log.Error(err)
 	}
 
 	return nil
 }
 
-func (bot *robot) hasPermission(commenter string, info giteeclient.PRInfo, cfg *botConfig, log *logrus.Entry) (bool, error) {
+func (bot *robot) hasPermission(
+	commenter string,
+	info giteeclient.PRInfo,
+	cfg *botConfig,
+	log *logrus.Entry,
+) (bool, error) {
 	// TODO: change judge commenter is collaborator as judge commenter's permission in gitee repository settings
 	v, err := bot.cli.IsCollaborator(info.Org, info.Repo, commenter)
 	if err != nil {
@@ -121,18 +128,20 @@ func (bot *robot) getLgtmLastCommentSha(info giteeclient.PRInfo) string {
 		return ""
 	}
 
-	lc := len(comments)
-	if lc == 0 {
+	if len(comments) == 0 {
 		return ""
 	}
 
 	lastLgtmSha := ""
 	regBotAddLgtmSha := regexp.MustCompile(fmt.Sprintf(labelHiddenValue, "(.*)"))
-	for i := lc - 1; i >= 0; i-- {
+
+	for i := len(comments) - 1; i >= 0; i-- {
 		comment := comments[i]
 		m := regBotAddLgtmSha.FindStringSubmatch(comment.Body)
+
 		if m != nil && comment.UpdatedAt == comment.CreatedAt {
 			lastLgtmSha = m[1]
+
 			break
 		}
 	}
@@ -140,17 +149,28 @@ func (bot *robot) getLgtmLastCommentSha(info giteeclient.PRInfo) string {
 	return lastLgtmSha
 }
 
-func (bot *robot) inRepoOwnersFile(commenter string, info giteeclient.PRInfo, path string, log *logrus.Entry) (bool, error) {
+func (bot *robot) inRepoOwnersFile(
+	commenter string,
+	info giteeclient.PRInfo,
+	path string,
+	log *logrus.Entry,
+) (bool, error) {
 	content, err := bot.cli.GetPathContent(info.Org, info.Repo, path, info.BaseRef)
 	if err != nil {
 		return false, err
 	}
 
 	owners := decodeOwners(content.Content, log)
+
 	return owners.Has(commenter), nil
 }
 
-func (bot *robot) inSigDirOwnersFile(commenter string, info giteeclient.PRInfo, cfg *botConfig, log *logrus.Entry) (bool, error) {
+func (bot *robot) inSigDirOwnersFile(
+	commenter string,
+	info giteeclient.PRInfo,
+	cfg *botConfig,
+	log *logrus.Entry,
+) (bool, error) {
 	if !cfg.isSpecialRepo(info.Repo) {
 		return false, nil
 	}
@@ -162,14 +182,18 @@ func (bot *robot) inSigDirOwnersFile(commenter string, info giteeclient.PRInfo, 
 
 	regSigFilePattern := regexp.MustCompile("^sig/[a-zA-Z0-9_-]+/.+")
 	filesPath := sets.NewString()
+
 	for _, file := range cFiles {
 		if !regSigFilePattern.MatchString(file.Filename) {
 			return false, nil
 		}
+
 		filesPath.Insert(path.Dir(file.Filename))
 	}
+
 	for p := range filesPath {
 		fp := path.Join(p, "OWNERS")
+
 		yes, err := bot.inRepoOwnersFile(commenter, info, fp, log)
 		if err != nil || !yes {
 			return false, err
@@ -185,13 +209,16 @@ func decodeOwners(content string, log *logrus.Entry) sets.String {
 	decodeBytes, err := base64.StdEncoding.DecodeString(content)
 	if err != nil {
 		log.Error(err)
+
 		return owners
 	}
 
 	var oFile ownersFile
+
 	err = yaml.Unmarshal(decodeBytes, &oFile)
 	if err != nil {
 		log.Error(err)
+
 		return owners
 	}
 

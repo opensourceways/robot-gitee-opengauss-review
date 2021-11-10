@@ -1,4 +1,4 @@
-module github.com/opensourceways/robot-opengauss-gitee-review
+module github.com/opensourceways/robot-gitee-opengauss-review
 
 go 1.15
 

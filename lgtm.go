@@ -26,22 +26,24 @@ var (
 	regRemoveLgtm = regexp.MustCompile(`(?mi)^/lgtm cancel\s*$`)
 )
 
-func (bot *robot) handleLGTM(e giteeclient.PRNoteEvent, cfg libconfig.PluginConfig, log *logrus.Entry) error {
+func (bot *robot) handleLGTM(e giteeclient.PRNoteEvent, pc libconfig.PluginConfig, log *logrus.Entry) error {
 	org, repo := e.GetOrgRep()
-	bCfg, err := bot.getConfig(cfg, org, repo)
+
+	cfg, err := bot.getConfig(pc, org, repo)
 	if err != nil {
 		return err
 	}
 
 	toAdd, toRemove := doWhat(e.GetComment())
-	if toAdd {
-		return bot.addLGTM(bCfg, e, log)
-	}
-	if toRemove {
-		return bot.removeLGTM(bCfg, e, log)
+	if !(toAdd || toRemove) {
+		return nil
 	}
 
-	return nil
+	if toAdd {
+		return bot.addLGTM(cfg, e, log)
+	}
+
+	return bot.removeLGTM(cfg, e, log)
 }
 
 func (bot *robot) addLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *logrus.Entry) error {
@@ -57,8 +59,10 @@ func (bot *robot) addLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *logrus
 	if err != nil {
 		return err
 	}
+
 	if !v {
 		comment := fmt.Sprintf(lgtmNoPermissionMessage, commenter, "add")
+
 		return bot.cli.CreatePRComment(prInfo.Org, prInfo.Repo, prInfo.Number, comment)
 	}
 
@@ -71,6 +75,7 @@ func (bot *robot) addLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *logrus
 	if !cfg.CloseStoreSha {
 		comment += fmt.Sprintf(labelHiddenValue, prInfo.HeadSHA)
 	}
+
 	return bot.cli.CreatePRComment(prInfo.Org, prInfo.Repo, prInfo.Number, comment)
 }
 
@@ -84,12 +89,15 @@ func (bot *robot) removeLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *log
 		if err != nil {
 			return err
 		}
+
 		if !v {
 			comment := fmt.Sprintf(lgtmNoPermissionMessage, commenter, "remove")
+
 			return bot.cli.CreatePRComment(prInfo.Org, prInfo.Repo, prInfo.Number, comment)
 		}
 
 		label := lgtmLabelContent(commenter, cfg.MultipleLGTMLabel)
+
 		return bot.cli.RemovePRLabel(prInfo.Org, prInfo.Repo, prInfo.Number, label)
 	}
 
@@ -100,6 +108,7 @@ func (bot *robot) removeLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *log
 	}
 
 	removeLabels := strings.Join(rmLabels, ",")
+
 	return bot.cli.RemovePRLabel(prInfo.Org, prInfo.Repo, prInfo.Number, removeLabels)
 }
 
@@ -111,29 +120,38 @@ func (bot *robot) clearLGTM(cfg libconfig.PluginConfig, e *sdk.PullRequestEvent,
 		return err
 	}
 
+	if bot.keepLgtmLabelBySha(bConfig, prInfo, log) {
+		log.Infof("Keeping LGTM label as the tree-hash remained the same: %s", prInfo.HeadSHA)
+	}
+
 	curLgtmLabels := prCurrentLGTMLabels(prInfo.Labels)
 	if len(curLgtmLabels) == 0 {
 		return nil
 	}
 
-	if !bConfig.CloseStoreSha {
-		lastSha := bot.getLgtmLastCommentSha(prInfo)
-		if lastSha != "" {
-			commit, err := bot.cli.GetPRCommit(prInfo.Org, prInfo.Repo, prInfo.HeadSHA)
-			if err != nil {
-				log.WithField("sha", prInfo.HeadSHA).WithError(err).Error("Failed to get commit.")
-			}
+	removeLabels := strings.Join(curLgtmLabels, ",")
 
-			if commit.Commit != nil && commit.Commit.Tree != nil && commit.Commit.Tree.Sha == lastSha {
-				// Don't remove the label, PR code hasn't changed
-				log.Infof("Keeping LGTM label as the tree-hash remained the same: %s", commit.Commit.Tree.Sha)
-				return nil
-			}
-		}
+	return bot.cli.RemovePRLabel(prInfo.Org, prInfo.Repo, prInfo.Number, removeLabels)
+}
+
+func (bot *robot) keepLgtmLabelBySha(cfg *botConfig, prInfo giteeclient.PRInfo, log *logrus.Entry) bool {
+	if cfg.CloseStoreSha {
+		return false
 	}
 
-	removeLabels := strings.Join(curLgtmLabels, ",")
-	return bot.cli.RemovePRLabel(prInfo.Org, prInfo.Repo, prInfo.Number, removeLabels)
+	lastSha := bot.getLgtmLastCommentSha(prInfo)
+	if lastSha == "" {
+		return false
+	}
+
+	commit, err := bot.cli.GetPRCommit(prInfo.Org, prInfo.Repo, prInfo.HeadSHA)
+	if err != nil {
+		log.WithField("sha", prInfo.HeadSHA).WithError(err).Error("Failed to get commit.")
+
+		return false
+	}
+
+	return commit.Commit != nil && commit.Commit.Tree != nil && commit.Commit.Tree.Sha == lastSha
 }
 
 func doWhat(comment string) (bool, bool) {
@@ -157,18 +175,21 @@ func lgtmLabelContent(commenter string, multipleLGTM bool) string {
 
 	labelLGTM := fmt.Sprintf("%s-%s", lgtmLabel, strings.ToLower(commenter))
 	// the gitee platform limits the length of labels to a maximum of 20
-	if len(labelLGTM) > 20 {
-		return labelLGTM[:20]
+	if labelLenLimit := 20; len(labelLGTM) > labelLenLimit {
+		return labelLGTM[:labelLenLimit]
 	}
+
 	return labelLGTM
 }
 
 func prCurrentLGTMLabels(labels sets.String) []string {
 	var lgtmLabels []string
+
 	for l := range labels {
 		if strings.HasPrefix(l, lgtmLabel) {
 			lgtmLabels = append(lgtmLabels, l)
 		}
 	}
+
 	return lgtmLabels
 }

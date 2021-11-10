@@ -32,6 +32,7 @@ func gatherOptions(fs *flag.FlagSet, args ...string) options {
 	o.plugin.AddFlags(fs)
 
 	_ = fs.Parse(args)
+
 	return o
 }
 
