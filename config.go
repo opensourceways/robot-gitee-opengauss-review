@@ -56,15 +56,18 @@ func (c *configuration) SetDefault() {
 
 type botConfig struct {
 	libconfig.PluginForRepo
-	// MultipleLGTMLabel indicates whether the PR can add lgtm-[login name] kind labels.
-	MultipleLGTMLabel bool `json:"multiple_lgtm_label"`
-	// CloseStoreSha indicates whether the sha of the current PR is saved when adding on the lgtm label
-	CloseStoreSha bool `json:"close_store_sha"`
-	// SpecialRepo indicates exec /lgtm or /approve command need check sig dir change
-	SpecialRepo []string `json:"special_repo"`
+	// LgtmCountsRequired greater than 1 means that the lgtm label is composed of lgtm-login,
+	// and as the basis for judging the conditions of PR merge.the default value is 1.
+	LgtmCountsRequired uint8 `json:"lgtm_counts_required,omitempty"`
+	// SpecialRepo indicates it should check the devepler's permission besed on the owners file
+	// in sig directory when the developer comment /lgtm or /approve command for these repos.
+	SpecialRepo []string `json:"special_repo,omitempty"`
 }
 
 func (c *botConfig) setDefault() {
+	if c.LgtmCountsRequired == 0 {
+		c.LgtmCountsRequired = 1
+	}
 }
 
 func (c *botConfig) validate() error {

@@ -14,11 +14,12 @@ import (
 
 const (
 	lgtmLabel               = "lgtm"
-	labelHiddenValue        = "<input type=hidden value=%s />"
 	lgtmAddedMessage        = `***lgtm*** is added in this pull request by: ***%s***. :wave:`
 	lgtmSelfOwnMessage      = `***lgtm*** can not be added in your self-own pull request. :astonished: `
 	lgtmNoPermissionMessage = `***@%s*** has no permission to %s ***lgtm*** in this pull request. :astonished:
-please contact to the collaborators in this repository.`
+	please contact to the collaborators in this repository.`
+	// the gitee platform limits the length of labels to a maximum of 20.
+	labelLenLimit = 20
 )
 
 var (
@@ -34,16 +35,15 @@ func (bot *robot) handleLGTM(e giteeclient.PRNoteEvent, pc libconfig.PluginConfi
 		return err
 	}
 
-	toAdd, toRemove := doWhat(e.GetComment())
-	if !(toAdd || toRemove) {
-		return nil
-	}
-
-	if toAdd {
+	if regAddLgtm.MatchString(e.GetComment()) {
 		return bot.addLGTM(cfg, e, log)
 	}
 
-	return bot.removeLGTM(cfg, e, log)
+	if regRemoveLgtm.MatchString(e.GetComment()) {
+		return bot.removeLGTM(cfg, e, log)
+	}
+
+	return nil
 }
 
 func (bot *robot) addLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *logrus.Entry) error {
@@ -66,15 +66,18 @@ func (bot *robot) addLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *logrus
 		return bot.cli.CreatePRComment(prInfo.Org, prInfo.Repo, prInfo.Number, comment)
 	}
 
-	label := lgtmLabelContent(commenter, cfg.MultipleLGTMLabel)
+	label := lgtmLabelContent(commenter, cfg.LgtmCountsRequired)
+	if label != lgtmLabel {
+		if err := bot.complexLgtmPrepare(label, prInfo); err != nil {
+			log.Error(err)
+		}
+	}
+
 	if err := bot.cli.AddMultiPRLabel(prInfo.Org, prInfo.Repo, prInfo.Number, []string{label}); err != nil {
 		return err
 	}
 
 	comment := fmt.Sprintf(lgtmAddedMessage, commenter)
-	if !cfg.CloseStoreSha {
-		comment += fmt.Sprintf(labelHiddenValue, prInfo.HeadSHA)
-	}
 
 	return bot.cli.CreatePRComment(prInfo.Org, prInfo.Repo, prInfo.Number, comment)
 }
@@ -96,93 +99,65 @@ func (bot *robot) removeLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *log
 			return bot.cli.CreatePRComment(prInfo.Org, prInfo.Repo, prInfo.Number, comment)
 		}
 
-		label := lgtmLabelContent(commenter, cfg.MultipleLGTMLabel)
+		label := lgtmLabelContent(commenter, cfg.LgtmCountsRequired)
 
 		return bot.cli.RemovePRLabel(prInfo.Org, prInfo.Repo, prInfo.Number, label)
 	}
 
 	// the commenter can remove all of lgtm[-login name] kind labels that who is the pr author
-	rmLabels := prCurrentLGTMLabels(prInfo.Labels)
-	if len(rmLabels) == 0 {
+	v := getLGTMLabelsOnPR(prInfo.Labels)
+	if len(v) == 0 {
 		return nil
 	}
 
-	removeLabels := strings.Join(rmLabels, ",")
-
-	return bot.cli.RemovePRLabel(prInfo.Org, prInfo.Repo, prInfo.Number, removeLabels)
+	return bot.cli.RemovePRLabel(prInfo.Org, prInfo.Repo, prInfo.Number, strings.Join(v, ","))
 }
 
-func (bot *robot) clearLGTM(cfg libconfig.PluginConfig, e *sdk.PullRequestEvent, log *logrus.Entry) error {
+func (bot *robot) clearLGTM(e *sdk.PullRequestEvent) error {
 	prInfo := giteeclient.GetPRInfoByPREvent(e)
 
-	bConfig, err := bot.getConfig(cfg, prInfo.Org, prInfo.Repo)
+	v := getLGTMLabelsOnPR(prInfo.Labels)
+	if len(v) == 0 {
+		return nil
+	}
+
+	return bot.cli.RemovePRLabel(prInfo.Org, prInfo.Repo, prInfo.Number, strings.Join(v, ","))
+}
+
+func (bot *robot) complexLgtmPrepare(label string, info giteeclient.PRInfo) error {
+	repoLabels, err := bot.cli.GetRepoLabels(info.Org, info.Repo)
 	if err != nil {
 		return err
 	}
 
-	if bot.keepLgtmLabelBySha(bConfig, prInfo, log) {
-		log.Infof("Keeping LGTM label as the tree-hash remained the same: %s", prInfo.HeadSHA)
+	has := false
+	for _, v := range repoLabels {
+		if v.Name == label {
+			has = false
+		}
+	}
+	if !has {
+		return bot.cli.CreateRepoLabel(info.Org, info.Repo, label, "")
 	}
 
-	curLgtmLabels := prCurrentLGTMLabels(prInfo.Labels)
-	if len(curLgtmLabels) == 0 {
-		return nil
-	}
-
-	removeLabels := strings.Join(curLgtmLabels, ",")
-
-	return bot.cli.RemovePRLabel(prInfo.Org, prInfo.Repo, prInfo.Number, removeLabels)
+	return nil
 }
 
-func (bot *robot) keepLgtmLabelBySha(cfg *botConfig, prInfo giteeclient.PRInfo, log *logrus.Entry) bool {
-	if cfg.CloseStoreSha {
-		return false
-	}
-
-	lastSha := bot.getLgtmLastCommentSha(prInfo)
-	if lastSha == "" {
-		return false
-	}
-
-	commit, err := bot.cli.GetPRCommit(prInfo.Org, prInfo.Repo, prInfo.HeadSHA)
-	if err != nil {
-		log.WithField("sha", prInfo.HeadSHA).WithError(err).Error("Failed to get commit.")
-
-		return false
-	}
-
-	return commit.Commit != nil && commit.Commit.Tree != nil && commit.Commit.Tree.Sha == lastSha
-}
-
-func doWhat(comment string) (bool, bool) {
-	// If we create an "/lgtm" comment, add lgtm if necessary.
-	if regAddLgtm.MatchString(comment) {
-		return true, false
-	}
-
-	// If we create a "/lgtm cancel" comment, remove lgtm if necessary.
-	if regRemoveLgtm.MatchString(comment) {
-		return false, true
-	}
-
-	return false, false
-}
-
-func lgtmLabelContent(commenter string, multipleLGTM bool) string {
-	if !multipleLGTM {
+func lgtmLabelContent(commenter string, lgtmCount uint8) string {
+	if lgtmCount <= 1 {
 		return lgtmLabel
 	}
 
 	labelLGTM := fmt.Sprintf("%s-%s", lgtmLabel, strings.ToLower(commenter))
-	// the gitee platform limits the length of labels to a maximum of 20
-	if labelLenLimit := 20; len(labelLGTM) > labelLenLimit {
+
+	if len(labelLGTM) > labelLenLimit {
 		return labelLGTM[:labelLenLimit]
 	}
 
 	return labelLGTM
 }
 
-func prCurrentLGTMLabels(labels sets.String) []string {
+func getLGTMLabelsOnPR(labels sets.String) []string {
 	var lgtmLabels []string
 
 	for l := range labels {
