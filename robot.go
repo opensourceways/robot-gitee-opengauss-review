@@ -7,6 +7,7 @@ import (
 	libconfig "github.com/opensourceways/community-robot-lib/config"
 	"github.com/opensourceways/community-robot-lib/giteeclient"
 	libplugin "github.com/opensourceways/community-robot-lib/giteeplugin"
+	cache "github.com/opensourceways/repo-file-cache/sdk"
 	"github.com/sirupsen/logrus"
 )
 
@@ -25,8 +26,8 @@ type iClient interface {
 	GetRepoLabels(owner, repo string) ([]sdk.Label, error)
 }
 
-func newRobot(cli iClient) *robot {
-	return &robot{cli: cli}
+func newRobot(cli iClient, cacheCli *cache.SDK) *robot {
+	return &robot{cli: cli, cacheCli: cacheCli}
 }
 
 type ownersFile struct {
@@ -35,7 +36,8 @@ type ownersFile struct {
 }
 
 type robot struct {
-	cli iClient
+	cli      iClient
+	cacheCli *cache.SDK
 }
 
 func (bot *robot) NewPluginConfig() libconfig.PluginConfig {

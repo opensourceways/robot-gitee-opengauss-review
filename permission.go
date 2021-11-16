@@ -6,6 +6,7 @@ import (
 	"regexp"
 
 	"github.com/opensourceways/community-robot-lib/giteeclient"
+	"github.com/opensourceways/repo-file-cache/models"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
@@ -76,16 +77,38 @@ func (bot *robot) inSigDirOwnersFile(
 		filesPath.Insert(path.Dir(file.Filename))
 	}
 
-	for p := range filesPath {
-		fp := path.Join(p, "OWNERS")
+	if len(filesPath) == 0 {
+		return false, nil
+	}
 
-		yes, err := bot.inRepoOwnersFile(commenter, info, fp, log)
-		if err != nil || !yes {
-			return false, err
+	param := models.Branch{
+		Platform: "gitee",
+		Org:      info.Org,
+		Repo:     info.Repo,
+		Branch:   info.BaseRef,
+	}
+
+	files, err := bot.cacheCli.GetFiles(param, "OWNERS", true)
+	if err != nil || len(files.Files) == 0 {
+		return false, err
+	}
+
+	for _, v := range files.Files {
+		if !filesPath.Has(string(v.Path)) {
+			continue
+		}
+
+		if owners := decodeOwners(v.Content, log); !owners.Has(commenter) {
+			return false, nil
+		}
+
+		filesPath.Delete(string(v.Path))
+		if len(filesPath) == 0 {
+			break
 		}
 	}
 
-	return true, nil
+	return len(filesPath) == 0, nil
 }
 
 func decodeOwners(content string, log *logrus.Entry) sets.String {

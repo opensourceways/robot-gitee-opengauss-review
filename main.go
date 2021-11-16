@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"net/url"
 	"os"
 
 	"github.com/opensourceways/community-robot-lib/giteeclient"
@@ -9,15 +10,22 @@ import (
 	"github.com/opensourceways/community-robot-lib/logrusutil"
 	liboptions "github.com/opensourceways/community-robot-lib/options"
 	"github.com/opensourceways/community-robot-lib/secret"
+	cache "github.com/opensourceways/repo-file-cache/sdk"
 	"github.com/sirupsen/logrus"
 )
 
 type options struct {
-	plugin liboptions.PluginOptions
-	gitee  liboptions.GiteeOptions
+	plugin        liboptions.PluginOptions
+	gitee         liboptions.GiteeOptions
+	cacheEndpoint string
+	maxRetries    int
 }
 
 func (o *options) Validate() error {
+	if _, err := url.ParseRequestURI(o.cacheEndpoint); err != nil {
+		return err
+	}
+
 	if err := o.plugin.Validate(); err != nil {
 		return err
 	}
@@ -30,6 +38,8 @@ func gatherOptions(fs *flag.FlagSet, args ...string) options {
 
 	o.gitee.AddFlags(fs)
 	o.plugin.AddFlags(fs)
+	fs.StringVar(&o.cacheEndpoint, "cache-endpoint", "", "The endpoint of repo file cache")
+	fs.IntVar(&o.maxRetries, "max-retries", 3, "The number of failed retry attempts to call the cache api")
 
 	_ = fs.Parse(args)
 
@@ -50,8 +60,9 @@ func main() {
 	}
 
 	c := giteeclient.NewClient(secretAgent.GetTokenGenerator(o.gitee.TokenPath))
+	s := cache.NewSDK(o.cacheEndpoint, o.maxRetries)
 
-	p := newRobot(c)
+	p := newRobot(c, s)
 
 	libplugin.Run(p, o.plugin)
 
