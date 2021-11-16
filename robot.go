@@ -14,12 +14,11 @@ import (
 const botName = "review"
 
 type iClient interface {
-	AddMultiPRLabel(org, repo string, number int32, label []string) error
+	AddPRLabel(org, repo string, number int32, label string) error
 	RemovePRLabel(org, repo string, number int32, label string) error
+	RemovePRLabels(org, repo string, number int32, label []string) error
 	CreatePRComment(org, repo string, number int32, comment string) error
 	GetUserPermissionsOfRepo(org, repo, login string) (sdk.ProjectMemberPermission, error)
-	ListPRComments(org, repo string, number int32) ([]sdk.PullRequestComments, error)
-	GetPRCommit(org, repo, SHA string) (sdk.RepoCommit, error)
 	GetPathContent(org, repo, path, ref string) (sdk.Content, error)
 	GetPullRequestChanges(org, repo string, number int32) ([]sdk.PullRequestFiles, error)
 	CreateRepoLabel(org, repo, label, color string) error
@@ -28,11 +27,6 @@ type iClient interface {
 
 func newRobot(cli iClient, cacheCli *cache.SDK) *robot {
 	return &robot{cli: cli, cacheCli: cacheCli}
-}
-
-type ownersFile struct {
-	Maintainers []string `yaml:"maintainers"`
-	Committers  []string `yaml:"committers"`
 }
 
 type robot struct {
@@ -63,31 +57,20 @@ func (bot *robot) RegisterEventHandler(p libplugin.HandlerRegitster) {
 }
 
 func (bot *robot) handlePREvent(e *sdk.PullRequestEvent, cfg libconfig.PluginConfig, log *logrus.Entry) error {
-	if giteeclient.GetPullRequestAction(e) != giteeclient.PRActionChangedSourceBranch {
-		return nil
+	org, repo := giteeclient.GetOwnerAndRepoByPREvent(e)
+	if _, err := bot.getConfig(cfg, org, repo); err != nil {
+		return err
 	}
 
-	if err := bot.clearLGTM(e); err != nil {
-		log.Error(err)
-	}
-
-	return nil
+	return bot.clearLGTM(e)
 }
 
-func (bot *robot) handleNoteEvent(e *sdk.NoteEvent, cfg libconfig.PluginConfig, log *logrus.Entry) error {
-	ne := giteeclient.NewNoteEventWrapper(e)
-	if !ne.IsPullRequest() || !ne.IsCreatingCommentEvent() {
-		return nil
+func (bot *robot) handleNoteEvent(e *sdk.NoteEvent, pc libconfig.PluginConfig, log *logrus.Entry) error {
+	org, repo := giteeclient.GetOwnerAndRepoByNoteEvent(e)
+	cfg, err := bot.getConfig(pc, org, repo)
+	if err != nil {
+		return err
 	}
 
-	prNe := giteeclient.NewPRNoteEvent(e)
-	if prNe.IsPROpen() {
-		return nil
-	}
-
-	if err := bot.handleLGTM(prNe, cfg, log); err != nil {
-		log.Error(err)
-	}
-
-	return nil
+	return bot.handleLGTM(e, cfg, log)
 }

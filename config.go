@@ -1,9 +1,6 @@
 package main
 
-import (
-	libconfig "github.com/opensourceways/community-robot-lib/config"
-	"k8s.io/apimachinery/pkg/util/sets"
-)
+import libconfig "github.com/opensourceways/community-robot-lib/config"
 
 type configuration struct {
 	ConfigItems []botConfig `json:"config_items,omitempty"`
@@ -24,7 +21,6 @@ func (c *configuration) configFor(org, repo string) *botConfig {
 	if i := libconfig.FindConfig(org, repo, v); i >= 0 {
 		return &items[i]
 	}
-
 	return nil
 }
 
@@ -56,12 +52,16 @@ func (c *configuration) SetDefault() {
 
 type botConfig struct {
 	libconfig.PluginForRepo
-	// LgtmCountsRequired greater than 1 means that the lgtm label is composed of lgtm-login,
-	// and as the basis for judging the conditions of PR merge.the default value is 1.
-	LgtmCountsRequired uint8 `json:"lgtm_counts_required,omitempty"`
-	// SpecialRepo indicates it should check the devepler's permission besed on the owners file
-	// in sig directory when the developer comment /lgtm or /approve command for these repos.
-	SpecialRepo []string `json:"special_repo,omitempty"`
+
+	// LgtmCountsRequired specifies the number of lgtm label will be need for the pr.
+	// When it is greater than 1, the lgtm label is composed of 'lgtm-login'.
+	// The default value is 1 which means the lgtm label is itself.
+	LgtmCountsRequired uint `json:"lgtm_counts_required,omitempty"`
+
+	// ReposOfSig specifies the repos that it should check the devepler's permission
+	// besed on the owners file in sig directory when the developer comment /lgtm or /approve
+	// command for these repos. The format of it is org/repo
+	ReposOfSig []string `json:"repos_of_sig,omitempty"`
 }
 
 func (c *botConfig) setDefault() {
@@ -72,14 +72,4 @@ func (c *botConfig) setDefault() {
 
 func (c *botConfig) validate() error {
 	return c.PluginForRepo.Validate()
-}
-
-func (c *botConfig) isSpecialRepo(repo string) bool {
-	if len(c.SpecialRepo) == 0 {
-		return false
-	}
-
-	sps := sets.NewString(c.SpecialRepo...)
-
-	return sps.Has(repo)
 }
