@@ -53,14 +53,14 @@ func (c *configuration) SetDefault() {
 type botConfig struct {
 	libconfig.PluginForRepo
 
-	// LgtmCountsRequired specifies the number of lgtm label will be need for the pr.
+	// LgtmCountsRequired specifies the number of lgtm label which will be need for the pr.
 	// When it is greater than 1, the lgtm label is composed of 'lgtm-login'.
 	// The default value is 1 which means the lgtm label is itself.
 	LgtmCountsRequired uint `json:"lgtm_counts_required,omitempty"`
 
-	// ReposOfSig specifies the repos that it should check the devepler's permission
+	// ReposOfSig specifies the repos for which it should check the devepler's permission
 	// besed on the owners file in sig directory when the developer comment /lgtm or /approve
-	// command for these repos. The format of it is org/repo
+	// command. The format is 'org/repo'.
 	ReposOfSig []string `json:"repos_of_sig,omitempty"`
 }
 

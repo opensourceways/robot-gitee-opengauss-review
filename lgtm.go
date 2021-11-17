@@ -13,11 +13,14 @@ import (
 
 const (
 	// the gitee platform limits the maximum length of label to 20.
-	labelLenLimit           = 20
-	lgtmLabel               = "lgtm"
-	lgtmAddedMessage        = "***lgtm*** is added in this pull request by: ***%s***. :wave:"
-	lgtmSelfOwnMessage      = "***lgtm*** can not be added in your self-own pull request. :astonished:"
-	lgtmNoPermissionMessage = "***@%s*** has no permission to %s ***lgtm*** in this pull request. :astonished:\nPlease contact to the collaborators in this repository."
+	labelLenLimit = 20
+	lgtmLabel     = "lgtm"
+
+	commentAddLGTMBySelf        = "***lgtm*** can not be added in your self-own pull request. :astonished:"
+	commentClearLabel           = `New code changes of pr are detected and remove these labels ***%s***. :flushed: `
+	commentNoPermissionForLabel = `
+***@%s*** has no permission to %s ***%s*** in this pull request. :astonished:
+Please contact to the collaborators in this repository.`
 )
 
 var (
@@ -49,7 +52,7 @@ func (bot *robot) addLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *logrus
 
 	commenter := e.GetCommenter()
 	if pr.Author == commenter {
-		return bot.cli.CreatePRComment(org, repo, number, lgtmSelfOwnMessage)
+		return bot.cli.CreatePRComment(org, repo, number, commentAddLGTMBySelf)
 	}
 
 	v, err := bot.hasPermission(commenter, pr, cfg, log)
@@ -57,8 +60,9 @@ func (bot *robot) addLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *logrus
 		return err
 	}
 	if !v {
-		comment := fmt.Sprintf(lgtmNoPermissionMessage, commenter, "add")
-		return bot.cli.CreatePRComment(org, repo, number, comment)
+		return bot.cli.CreatePRComment(org, repo, number, fmt.Sprintf(
+			commentNoPermissionForLabel, commenter, "add", lgtmLabel,
+		))
 	}
 
 	label := genLGTMLabel(commenter, cfg.LgtmCountsRequired)
@@ -68,12 +72,7 @@ func (bot *robot) addLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *logrus
 		}
 	}
 
-	if err := bot.cli.AddPRLabel(org, repo, number, label); err != nil {
-		return err
-	}
-
-	comment := fmt.Sprintf(lgtmAddedMessage, commenter)
-	return bot.cli.CreatePRComment(org, repo, number, comment)
+	return bot.cli.AddPRLabel(org, repo, number, label)
 }
 
 func (bot *robot) removeLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *logrus.Entry) error {
@@ -86,8 +85,9 @@ func (bot *robot) removeLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *log
 			return err
 		}
 		if !v {
-			comment := fmt.Sprintf(lgtmNoPermissionMessage, commenter, "remove")
-			return bot.cli.CreatePRComment(org, repo, number, comment)
+			return bot.cli.CreatePRComment(org, repo, number, fmt.Sprintf(
+				commentNoPermissionForLabel, commenter, "remove", lgtmLabel,
+			))
 		}
 
 		return bot.cli.RemovePRLabel(
@@ -97,7 +97,7 @@ func (bot *robot) removeLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *log
 	}
 
 	// the author of pr can remove all of lgtm[-login name] kind labels
-	if v := getLGTMLabelsOnPR(pr.Labels); len(v) == 0 {
+	if v := getLGTMLabelsOnPR(pr.Labels); len(v) >= 0 {
 		return bot.cli.RemovePRLabels(org, repo, number, v)
 	}
 	return nil
@@ -118,15 +118,22 @@ func (bot *robot) createLabelIfNeed(org, repo, label string) error {
 	return bot.cli.CreateRepoLabel(org, repo, label, "")
 }
 
-func (bot *robot) clearLGTM(e *sdk.PullRequestEvent) error {
+func (bot *robot) clearLabel(e *sdk.PullRequestEvent) error {
 	if giteeclient.GetPullRequestAction(e) != giteeclient.PRActionChangedSourceBranch {
 		return nil
 	}
 
 	pr := giteeclient.GetPRInfoByPREvent(e)
 
-	if v := getLGTMLabelsOnPR(pr.Labels); len(v) == 0 {
-		return bot.cli.RemovePRLabels(pr.Org, pr.Repo, pr.Number, v)
+	if v := getLGTMLabelsOnPR(pr.Labels); len(v) > 0 {
+		if err := bot.cli.RemovePRLabels(pr.Org, pr.Repo, pr.Number, v); err != nil {
+			return err
+		}
+
+		return bot.cli.CreatePRComment(
+			pr.Org, pr.Repo, pr.Number,
+			fmt.Sprintf(commentClearLabel, strings.Join(v, ", ")),
+		)
 	}
 	return nil
 }

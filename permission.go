@@ -132,6 +132,7 @@ func decodeOwnerFile(content string, log *logrus.Entry) sets.String {
 
 	var m struct {
 		Maintainers []string `yaml:"maintainers"`
+		Committers  []string `yaml:"committers"`
 	}
 
 	if err = yaml.Unmarshal(c, &m); err != nil {
@@ -141,6 +142,9 @@ func decodeOwnerFile(content string, log *logrus.Entry) sets.String {
 
 	if len(m.Maintainers) > 0 {
 		owners.Insert(m.Maintainers...)
+	}
+	if len(m.Committers) > 0 {
+		owners.Insert(m.Committers...)
 	}
 	return owners
 }

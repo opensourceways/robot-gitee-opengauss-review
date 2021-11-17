@@ -62,7 +62,7 @@ func (bot *robot) handlePREvent(e *sdk.PullRequestEvent, cfg libconfig.PluginCon
 		return err
 	}
 
-	return bot.clearLGTM(e)
+	return bot.clearLabel(e)
 }
 
 func (bot *robot) handleNoteEvent(e *sdk.NoteEvent, pc libconfig.PluginConfig, log *logrus.Entry) error {
