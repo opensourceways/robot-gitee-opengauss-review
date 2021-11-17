@@ -7,6 +7,7 @@ import (
 	libconfig "github.com/opensourceways/community-robot-lib/config"
 	"github.com/opensourceways/community-robot-lib/giteeclient"
 	libplugin "github.com/opensourceways/community-robot-lib/giteeplugin"
+	"github.com/opensourceways/community-robot-lib/utils"
 	cache "github.com/opensourceways/repo-file-cache/sdk"
 	"github.com/sirupsen/logrus"
 )
@@ -72,9 +73,14 @@ func (bot *robot) handleNoteEvent(e *sdk.NoteEvent, pc libconfig.PluginConfig, l
 		return err
 	}
 
+	merr := utils.NewMultiErrors()
 	if err := bot.handleLGTM(e, cfg, log); err != nil {
-		log.WithError(err).Error("handle lgtm command")
+		merr.AddError(err)
 	}
 
-	return bot.handleApprove(e, cfg, log)
+	if err = bot.handleApprove(e, cfg, log); err != nil {
+		merr.AddError(err)
+	}
+
+	return merr.Err()
 }
