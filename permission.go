@@ -32,18 +32,22 @@ func (bot *robot) hasPermission(
 		return true, nil
 	}
 
-	if v, err := bot.getRepoOwners(pr, log); err != nil || !v.Has(commenter) {
+	v, err := bot.getRepoOwners(pr, log)
+	if err != nil {
 		return false, err
+	}
+	if v.Has(commenter) {
+		return true, nil
 	}
 
 	if len(cfg.ReposOfSig) > 0 {
-		v := sets.NewString(cfg.ReposOfSig...)
-		if !v.Has(fmt.Sprintf("%s/%s", pr.Org, pr.Repo)) {
-			return false, nil
+		v = sets.NewString(cfg.ReposOfSig...)
+		if v.Has(fmt.Sprintf("%s/%s", pr.Org, pr.Repo)) {
+			return bot.isOwnerOfSig(commenter, pr, cfg, log)
 		}
 	}
 
-	return bot.isOwnerOfSig(commenter, pr, cfg, log)
+	return false, nil
 }
 
 func (bot *robot) getRepoOwners(pr giteeclient.PRInfo, log *logrus.Entry) (sets.String, error) {
@@ -62,7 +66,7 @@ func (bot *robot) isOwnerOfSig(
 	log *logrus.Entry,
 ) (bool, error) {
 	changes, err := bot.cli.GetPullRequestChanges(pr.Org, pr.Repo, pr.Number)
-	if err != nil {
+	if err != nil || len(changes) == 0 {
 		return false, err
 	}
 
@@ -72,10 +76,6 @@ func (bot *robot) isOwnerOfSig(
 			return false, nil
 		}
 		pathes.Insert(filepath.Dir(file.Filename))
-	}
-
-	if pathes.Len() == 0 {
-		return false, nil
 	}
 
 	param := models.Branch{
@@ -96,7 +96,7 @@ func (bot *robot) isOwnerOfSig(
 				"repo":   pr.Repo,
 				"branch": pr.BaseRef,
 			},
-		).Info("there is not files stored in cache.")
+		).Infof("there is not %s file stored in cache.", ownerFile)
 
 		return false, nil
 	}
