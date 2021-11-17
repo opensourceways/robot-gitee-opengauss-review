@@ -78,27 +78,9 @@ func (bot *robot) isOwnerOfSig(
 		pathes.Insert(filepath.Dir(file.Filename))
 	}
 
-	param := models.Branch{
-		Platform: "gitee",
-		Org:      pr.Org,
-		Repo:     pr.Repo,
-		Branch:   pr.BaseRef,
-	}
-
-	files, err := bot.cacheCli.GetFiles(param, ownerFile, true)
+	files, err := bot.getSigOwnerFiles(pr.Org, pr.Repo, pr.BaseRef, log)
 	if err != nil {
 		return false, err
-	}
-	if len(files.Files) == 0 {
-		log.WithFields(
-			logrus.Fields{
-				"org":    pr.Org,
-				"repo":   pr.Repo,
-				"branch": pr.BaseRef,
-			},
-		).Infof("there is not %s file stored in cache.", ownerFile)
-
-		return false, nil
 	}
 
 	for _, v := range files.Files {
@@ -119,6 +101,33 @@ func (bot *robot) isOwnerOfSig(
 	}
 
 	return false, nil
+}
+
+func (bot *robot) getSigOwnerFiles(org, repo, branch string, log *logrus.Entry) (models.FilesInfo, error) {
+	files, err := bot.cacheCli.GetFiles(
+		models.Branch{
+			Platform: "gitee",
+			Org:      org,
+			Repo:     repo,
+			Branch:   branch,
+		},
+		ownerFile, true,
+	)
+	if err != nil {
+		return models.FilesInfo{}, err
+	}
+
+	if len(files.Files) == 0 {
+		log.WithFields(
+			logrus.Fields{
+				"org":    org,
+				"repo":   repo,
+				"branch": branch,
+			},
+		).Infof("there is not %s file stored in cache.", ownerFile)
+	}
+
+	return files, nil
 }
 
 func decodeOwnerFile(content string, log *logrus.Entry) sets.String {
