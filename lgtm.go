@@ -19,7 +19,7 @@ const (
 	commentAddLGTMBySelf        = "***lgtm*** can not be added in your self-own pull request. :astonished:"
 	commentClearLabel           = `New code changes of pr are detected and remove these labels ***%s***. :flushed: `
 	commentNoPermissionForLabel = `
-***@%s*** has no permission to %s ***%s*** in this pull request. :astonished:
+***@%s*** has no permission to %s ***%s*** label in this pull request. :astonished:
 Please contact to the collaborators in this repository.`
 )
 
@@ -97,7 +97,7 @@ func (bot *robot) removeLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *log
 	}
 
 	// the author of pr can remove all of lgtm[-login name] kind labels
-	if v := getLGTMLabelsOnPR(pr.Labels); len(v) >= 0 {
+	if v := getLGTMLabelsOnPR(pr.Labels); len(v) > 0 {
 		return bot.cli.RemovePRLabels(org, repo, number, v)
 	}
 	return nil
