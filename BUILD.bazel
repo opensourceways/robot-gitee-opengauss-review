@@ -21,10 +21,10 @@ go_library(
     name = "go_default_library",
     srcs = [
         "approve.go",
-        "checkpr.go",
         "config.go",
         "lgtm.go",
         "main.go",
+        "merge.go",
         "permission.go",
         "robot.go",
     ],

@@ -6,11 +6,11 @@ import (
 	libconfig "github.com/opensourceways/community-robot-lib/config"
 )
 
-type pullRequestMergeType string
+type pullRequestMergeMethod string
 
 const (
-	mergeMerge  pullRequestMergeType = "merge"
-	mergeSquash pullRequestMergeType = "squash"
+	mergeMethodeMerge pullRequestMergeMethod = "merge"
+	mergeMethodSquash pullRequestMergeMethod = "squash"
 )
 
 type configuration struct {
@@ -74,15 +74,16 @@ type botConfig struct {
 	// command. The format is 'org/repo'.
 	ReposOfSig []string `json:"repos_of_sig,omitempty"`
 
-	// RequiringLabels only PRs that already have these tags can be merged
-	RequiringLabels []string `json:"requiring_labels,omitempty"`
+	// LabelsForMerge specifies the labels except approved and lgtm relevent labels
+	// that must be available to merge pr
+	LabelsForMerge []string `json:"labels_for_merge,omitempty"`
 
-	// MissingLabels PRs that already have these tags cannot be merged*
-	MissingLabels []string `json:"missing_labels,omitempty"`
+	// MissingLabelsForMerge specifies the ones which a PR must not have to be merged.
+	MissingLabelsForMerge []string `json:"missing_labels_for_merge,omitempty"`
 
 	// MergeMethod is the method to merge PR.
 	// The default method of merge. Valid options are squash and merge.
-	MergeMethod pullRequestMergeType `json:"merge_method,omitempty"`
+	MergeMethod pullRequestMergeMethod `json:"merge_method,omitempty"`
 }
 
 func (c *botConfig) setDefault() {
@@ -91,13 +92,13 @@ func (c *botConfig) setDefault() {
 	}
 
 	if c.MergeMethod == "" {
-		c.MergeMethod = mergeMerge
+		c.MergeMethod = mergeMethodeMerge
 	}
 }
 
 func (c *botConfig) validate() error {
-	if c.MergeMethod != mergeMerge && c.MergeMethod != mergeSquash {
-		return fmt.Errorf("unsupported merge method:%s", c.MergeMethod)
+	if m := c.MergeMethod; m != mergeMethodeMerge && m != mergeMethodSquash {
+		return fmt.Errorf("unsupported merge method:%s", m)
 	}
 
 	return c.PluginForRepo.Validate()

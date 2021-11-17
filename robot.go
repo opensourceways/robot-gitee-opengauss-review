@@ -24,7 +24,6 @@ type iClient interface {
 	GetPullRequestChanges(org, repo string, number int32) ([]sdk.PullRequestFiles, error)
 	CreateRepoLabel(org, repo, label, color string) error
 	GetRepoLabels(owner, repo string) ([]sdk.Label, error)
-	GetGiteePullRequest(org, repo string, number int32) (sdk.PullRequest, error)
 	MergePR(owner, repo string, number int32, opt sdk.PullRequestMergePutParam) error
 	UpdatePullRequest(org, repo string, number int32, param sdk.PullRequestUpdateParam) (sdk.PullRequest, error)
 }
@@ -72,7 +71,7 @@ func (bot *robot) handlePREvent(e *sdk.PullRequestEvent, pc libconfig.PluginConf
 		merr.AddError(err)
 	}
 
-	if err := bot.mergePRByLabelChanged(e, cfg, log); err != nil {
+	if err := bot.tryMerge(e, cfg, log); err != nil {
 		merr.AddError(err)
 	}
 
