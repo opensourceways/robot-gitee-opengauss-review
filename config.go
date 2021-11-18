@@ -74,7 +74,7 @@ type botConfig struct {
 	// command. The format is 'org/repo'.
 	ReposOfSig []string `json:"repos_of_sig,omitempty"`
 
-	// LabelsForMerge specifies the labels except approved and lgtm relevent labels
+	// LabelsForMerge specifies the labels except approved and lgtm relevant labels
 	// that must be available to merge pr
 	LabelsForMerge []string `json:"labels_for_merge,omitempty"`
 

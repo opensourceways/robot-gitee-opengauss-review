@@ -7,7 +7,6 @@ import (
 
 	sdk "gitee.com/openeuler/go-gitee/gitee"
 	"github.com/opensourceways/community-robot-lib/giteeclient"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -20,7 +19,7 @@ const (
 
 var regCheckPr = regexp.MustCompile(`(?mi)^/check-pr\s*$`)
 
-func (bot *robot) handleCheckPR(e *sdk.NoteEvent, cfg *botConfig, log *logrus.Entry) error {
+func (bot *robot) handleCheckPR(e *sdk.NoteEvent, cfg *botConfig) error {
 	ne := giteeclient.NewPRNoteEvent(e)
 
 	if !ne.IsPullRequest() ||
@@ -49,7 +48,7 @@ func (bot *robot) handleCheckPR(e *sdk.NoteEvent, cfg *botConfig, log *logrus.En
 	)
 }
 
-func (bot *robot) tryMerge(e *sdk.PullRequestEvent, cfg *botConfig, log *logrus.Entry) error {
+func (bot *robot) tryMerge(e *sdk.PullRequestEvent, cfg *botConfig) error {
 	if giteeclient.GetPullRequestAction(e) != giteeclient.PRActionUpdatedLabel {
 		return nil
 	}
@@ -94,20 +93,22 @@ func canMerge(mergeable bool, labels sets.String, cfg *botConfig) []string {
 
 	reasons := []string{}
 
-	if ln := cfg.LgtmCountsRequired; ln == 1 {
-		needs := sets.NewString(lgtmLabel, approvedLabel)
-		needs.Insert(cfg.LabelsForMerge...)
+	needs := sets.NewString(approvedLabel)
+	needs.Insert(cfg.LabelsForMerge...)
 
-		if v := needs.Difference(labels); v.Len() > 0 {
-			reasons = append(reasons, fmt.Sprintf(
-				msgMissingLabels, strings.Join(v.UnsortedList(), ", "),
-			))
-		}
+	if ln := cfg.LgtmCountsRequired; ln == 1 {
+		needs = sets.NewString(lgtmLabel)
 	} else {
 		v := getLGTMLabelsOnPR(labels)
 		if n := uint(len(v)); n < ln {
 			reasons = append(reasons, fmt.Sprintf(msgNotEnoughLGTMLabel, ln, n))
 		}
+	}
+
+	if v := needs.Difference(labels); v.Len() > 0 {
+		reasons = append(reasons, fmt.Sprintf(
+			msgMissingLabels, strings.Join(v.UnsortedList(), ", "),
+		))
 	}
 
 	if len(cfg.MissingLabelsForMerge) > 0 {

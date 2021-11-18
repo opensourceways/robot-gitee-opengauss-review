@@ -71,7 +71,7 @@ func (bot *robot) handlePREvent(e *sdk.PullRequestEvent, pc libconfig.PluginConf
 		merr.AddError(err)
 	}
 
-	if err := bot.tryMerge(e, cfg, log); err != nil {
+	if err := bot.tryMerge(e, cfg); err != nil {
 		merr.AddError(err)
 	}
 
@@ -94,7 +94,7 @@ func (bot *robot) handleNoteEvent(e *sdk.NoteEvent, pc libconfig.PluginConfig, l
 		merr.AddError(err)
 	}
 
-	if err = bot.handleCheckPR(e, cfg, log); err != nil {
+	if err = bot.handleCheckPR(e, cfg); err != nil {
 		merr.AddError(err)
 	}
 
