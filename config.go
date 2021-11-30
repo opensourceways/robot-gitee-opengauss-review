@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	libconfig "github.com/opensourceways/community-robot-lib/config"
@@ -75,8 +76,9 @@ type botConfig struct {
 	// command. The repository is 'tc' at present.
 	CheckPermissionBasedOnSigOwners bool `json:"check_permission_based_on_sig_owners,omitempty"`
 
-	// SigDir is the directory of Sig. It must be set when CheckPermissionBasedOnSigOwners is true.
-	SigDir string `json:"sig_dir,omitempty"`
+	// SigsDir is the directory of Sig. It must be set when CheckPermissionBasedOnSigOwners is true.
+	SigsDir   string        `json:"sigs_dir,omitempty"`
+	regSigDir regexp.Regexp `json:"-"`
 
 	// LabelsForMerge specifies the labels except approved and lgtm relevant labels
 	// that must be available to merge pr
@@ -106,13 +108,19 @@ func (c *botConfig) validate() error {
 	}
 
 	if c.CheckPermissionBasedOnSigOwners {
-		if c.SigDir == "" {
-			return fmt.Errorf("missing sig_dir")
+		if c.SigsDir == "" {
+			return fmt.Errorf("missing sigs_dir")
 		}
 
-		if !strings.HasSuffix(c.SigDir, "/") {
-			c.SigDir += "/"
+		v, err := regexp.Compile(fmt.Sprintf(
+			`^%s/[-\w]+/`,
+			strings.TrimSuffix(c.SigsDir, "/"),
+		))
+		if err != nil {
+			return err
 		}
+
+		c.regSigDir = *v
 	}
 
 	return c.PluginForRepo.Validate()

@@ -72,7 +72,7 @@ func (bot *robot) isOwnerOfSig(
 
 	pathes := sets.NewString()
 	for _, file := range changes {
-		if !strings.HasPrefix(file.Filename, cfg.SigDir) {
+		if !cfg.regSigDir.MatchString(file.Filename) {
 			return false, nil
 		}
 		pathes.Insert(filepath.Dir(file.Filename))
