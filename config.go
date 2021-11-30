@@ -69,10 +69,10 @@ type botConfig struct {
 	// The default value is 1 which means the lgtm label is itself.
 	LgtmCountsRequired uint `json:"lgtm_counts_required,omitempty"`
 
-	// ReposOfSig specifies the repos for which it should check the devepler's permission
+	// CheckPermissionBasedOnSigOwners means it should check the devepler's permission
 	// besed on the owners file in sig directory when the developer comment /lgtm or /approve
-	// command. The format is 'org/repo'.
-	ReposOfSig []string `json:"repos_of_sig,omitempty"`
+	// command. The repository is 'tc' at present.
+	CheckPermissionBasedOnSigOwners bool `json:"check_permission_based_on_sig_owners,omitempty"`
 
 	// LabelsForMerge specifies the labels except approved and lgtm relevant labels
 	// that must be available to merge pr

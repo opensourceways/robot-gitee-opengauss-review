@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/base64"
-	"fmt"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -38,11 +37,8 @@ func (bot *robot) hasPermission(
 		return true, nil
 	}
 
-	if len(cfg.ReposOfSig) > 0 {
-		v := sets.NewString(cfg.ReposOfSig...)
-		if v.Has(fmt.Sprintf("%s/%s", pr.Org, pr.Repo)) {
-			return bot.isOwnerOfSig(commenter, pr, cfg, log)
-		}
+	if cfg.CheckPermissionBasedOnSigOwners {
+		return bot.isOwnerOfSig(commenter, pr, cfg, log)
 	}
 
 	return false, nil
