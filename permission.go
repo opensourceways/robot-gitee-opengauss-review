@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/base64"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/opensourceways/community-robot-lib/giteeclient"
@@ -14,8 +13,6 @@ import (
 )
 
 const ownerFile = "OWNERS"
-
-var reSigsPath = regexp.MustCompile(`^sigs/[-\w]+/`)
 
 func (bot *robot) hasPermission(
 	commenter string,
@@ -75,7 +72,7 @@ func (bot *robot) isOwnerOfSig(
 
 	pathes := sets.NewString()
 	for _, file := range changes {
-		if !reSigsPath.MatchString(file.Filename) {
+		if !strings.HasPrefix(file.Filename, cfg.SigDir) {
 			return false, nil
 		}
 		pathes.Insert(filepath.Dir(file.Filename))

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	libconfig "github.com/opensourceways/community-robot-lib/config"
 )
@@ -74,6 +75,9 @@ type botConfig struct {
 	// command. The repository is 'tc' at present.
 	CheckPermissionBasedOnSigOwners bool `json:"check_permission_based_on_sig_owners,omitempty"`
 
+	// SigDir is the directory of Sig. It must be set when CheckPermissionBasedOnSigOwners is true.
+	SigDir string `json:"sig_dir,omitempty"`
+
 	// LabelsForMerge specifies the labels except approved and lgtm relevant labels
 	// that must be available to merge pr
 	LabelsForMerge []string `json:"labels_for_merge,omitempty"`
@@ -99,6 +103,16 @@ func (c *botConfig) setDefault() {
 func (c *botConfig) validate() error {
 	if m := c.MergeMethod; m != mergeMethodeMerge && m != mergeMethodSquash {
 		return fmt.Errorf("unsupported merge method:%s", m)
+	}
+
+	if c.CheckPermissionBasedOnSigOwners {
+		if c.SigDir == "" {
+			return fmt.Errorf("missing sig_dir")
+		}
+
+		if !strings.HasSuffix(c.SigDir, "/") {
+			c.SigDir += "/"
+		}
 	}
 
 	return c.PluginForRepo.Validate()
