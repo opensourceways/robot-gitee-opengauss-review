@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/opensourceways/community-robot-lib/giteeclient"
 	"github.com/opensourceways/repo-file-cache/models"
@@ -23,6 +24,7 @@ func (bot *robot) hasPermission(
 	cfg *botConfig,
 	log *logrus.Entry,
 ) (bool, error) {
+	commenter = strings.ToLower(commenter)
 	p, err := bot.cli.GetUserPermissionsOfRepo(pr.Org, pr.Repo, commenter)
 	if err != nil {
 		return false, err
@@ -154,11 +156,13 @@ func decodeOwnerFile(content string, log *logrus.Entry) sets.String {
 		return owners
 	}
 
-	if len(m.Maintainers) > 0 {
-		owners.Insert(m.Maintainers...)
+	for _, v := range m.Maintainers {
+		owners.Insert(strings.ToLower(v))
 	}
-	if len(m.Committers) > 0 {
-		owners.Insert(m.Committers...)
+
+	for _, v := range m.Committers {
+		owners.Insert(strings.ToLower(v))
 	}
+
 	return owners
 }
