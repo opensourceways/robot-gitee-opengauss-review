@@ -5,8 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	sdk "gitee.com/openeuler/go-gitee/gitee"
-	"github.com/opensourceways/community-robot-lib/giteeclient"
+	sdk "github.com/opensourceways/go-gitee/gitee"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -20,49 +19,48 @@ const (
 var regCheckPr = regexp.MustCompile(`(?mi)^/check-pr\s*$`)
 
 func (bot *robot) handleCheckPR(e *sdk.NoteEvent, cfg *botConfig) error {
-	ne := giteeclient.NewPRNoteEvent(e)
-
-	if !ne.IsPullRequest() ||
-		!ne.IsPROpen() ||
-		!ne.IsCreatingCommentEvent() ||
-		!regCheckPr.MatchString(ne.GetComment()) {
+	if !e.IsPullRequest() ||
+		!e.IsPROpen() ||
+		!e.IsCreatingCommentEvent() ||
+		!regCheckPr.MatchString(e.GetComment().GetBody()) {
 		return nil
 	}
 
-	pr := ne.PullRequest
-	org, repo := ne.GetOrgRep()
+	pr := e.GetPullRequest()
+	org, repo := e.GetOrgRepo()
 
-	if r := canMerge(pr.Mergeable, ne.GetPRLabels(), cfg); len(r) > 0 {
+	if r := canMerge(pr.Mergeable, e.GetPRLabelSet(), cfg); len(r) > 0 {
 		return bot.cli.CreatePRComment(
-			org, repo, ne.GetPRNumber(),
+			org, repo, e.GetPRNumber(),
 			fmt.Sprintf(
 				"@%s , this pr is not mergeable and the reasons are below:\n%s",
-				ne.GetCommenter(), strings.Join(r, "\n"),
+				e.GetCommenter(), strings.Join(r, "\n"),
 			),
 		)
 	}
 
 	return bot.mergePR(
 		pr.NeedReview || pr.NeedTest,
-		org, repo, ne.GetPRNumber(), string(cfg.MergeMethod),
+		org, repo, e.GetPRNumber(), string(cfg.MergeMethod),
 	)
 }
 
 func (bot *robot) tryMerge(e *sdk.PullRequestEvent, cfg *botConfig) error {
-	if giteeclient.GetPullRequestAction(e) != giteeclient.PRActionUpdatedLabel {
+	if sdk.GetPullRequestAction(e) != sdk.PRActionUpdatedLabel {
 		return nil
 	}
 
 	pr := e.PullRequest
-	info := giteeclient.GetPRInfoByPREvent(e)
 
-	if r := canMerge(pr.Mergeable, info.Labels, cfg); len(r) > 0 {
+	if r := canMerge(pr.GetMergeable(), e.GetPRLabelSet(), cfg); len(r) > 0 {
 		return nil
 	}
 
+	org, repo := e.GetOrgRepo()
+
 	return bot.mergePR(
-		pr.NeedReview || pr.NeedTest,
-		info.Org, info.Repo, info.Number, string(cfg.MergeMethod),
+		pr.GetNeedReview() || pr.GetNeedTest(),
+		org, repo, e.GetPRNumber(), string(cfg.MergeMethod),
 	)
 }
 

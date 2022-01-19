@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	libconfig "github.com/opensourceways/community-robot-lib/config"
+	"github.com/opensourceways/community-robot-lib/config"
 )
 
 type pullRequestMergeMethod string
@@ -26,12 +26,12 @@ func (c *configuration) configFor(org, repo string) *botConfig {
 
 	items := c.ConfigItems
 
-	v := make([]libconfig.IPluginForRepo, len(items))
+	v := make([]config.IRepoFilter, len(items))
 	for i := range items {
 		v[i] = &items[i]
 	}
 
-	if i := libconfig.FindConfig(org, repo, v); i >= 0 {
+	if i := config.Find(org, repo, v); i >= 0 {
 		return &items[i]
 	}
 	return nil
@@ -64,7 +64,7 @@ func (c *configuration) SetDefault() {
 }
 
 type botConfig struct {
-	libconfig.PluginForRepo
+	config.RepoFilter
 
 	// LgtmCountsRequired specifies the number of lgtm label which will be need for the pr.
 	// When it is greater than 1, the lgtm label is composed of 'lgtm-login'.
@@ -123,5 +123,5 @@ func (c *botConfig) validate() error {
 		c.regSigDir = *v
 	}
 
-	return c.PluginForRepo.Validate()
+	return c.RepoFilter.Validate()
 }

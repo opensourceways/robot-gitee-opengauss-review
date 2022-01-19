@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"regexp"
 
-	sdk "gitee.com/openeuler/go-gitee/gitee"
-	"github.com/opensourceways/community-robot-lib/giteeclient"
+	sdk "github.com/opensourceways/go-gitee/gitee"
 	"github.com/sirupsen/logrus"
 )
 
@@ -17,55 +16,54 @@ var (
 )
 
 func (bot *robot) handleApprove(e *sdk.NoteEvent, cfg *botConfig, log *logrus.Entry) error {
-	ne := giteeclient.NewPRNoteEvent(e)
-
-	if !ne.IsPullRequest() || !ne.IsPROpen() || !ne.IsCreatingCommentEvent() {
+	if !e.IsPullRequest() || !e.IsPROpen() || !e.IsCreatingCommentEvent() {
 		return nil
 	}
 
-	if regAddApprove.MatchString(ne.GetComment()) {
-		return bot.AddApprove(cfg, ne, log)
+	comment := e.GetComment().GetBody()
+	if regAddApprove.MatchString(comment) {
+		return bot.AddApprove(cfg, e, log)
 	}
 
-	if regRemoveApprove.MatchString(ne.GetComment()) {
-		return bot.removeApprove(cfg, ne, log)
+	if regRemoveApprove.MatchString(comment) {
+		return bot.removeApprove(cfg, e, log)
 	}
 
 	return nil
 }
 
-func (bot *robot) AddApprove(cfg *botConfig, e giteeclient.PRNoteEvent, log *logrus.Entry) error {
-	pr := e.GetPRInfo()
+func (bot *robot) AddApprove(cfg *botConfig, e *sdk.NoteEvent, log *logrus.Entry) error {
 	commenter := e.GetCommenter()
+	org, repo := e.GetOrgRepo()
 
-	v, err := bot.hasPermission(commenter, pr, cfg, log)
+	v, err := bot.hasPermission(org, repo, commenter, e.GetPullRequest(), cfg, log)
 	if err != nil {
 		return err
 	}
 
 	if !v {
-		return bot.cli.CreatePRComment(pr.Org, pr.Repo, pr.Number, fmt.Sprintf(
+		return bot.cli.CreatePRComment(org, repo, e.GetPRNumber(), fmt.Sprintf(
 			commentNoPermissionForLabel, commenter, "add", approvedLabel,
 		))
 	}
 
-	return bot.cli.AddPRLabel(pr.Org, pr.Repo, pr.Number, approvedLabel)
+	return bot.cli.AddPRLabel(org, repo, e.GetPRNumber(), approvedLabel)
 }
 
-func (bot *robot) removeApprove(cfg *botConfig, e giteeclient.PRNoteEvent, log *logrus.Entry) error {
-	pr := e.GetPRInfo()
+func (bot *robot) removeApprove(cfg *botConfig, e *sdk.NoteEvent, log *logrus.Entry) error {
 	commenter := e.GetCommenter()
+	org, repo := e.GetOrgRepo()
 
-	v, err := bot.hasPermission(commenter, pr, cfg, log)
+	v, err := bot.hasPermission(org, repo, commenter, e.GetPullRequest(), cfg, log)
 	if err != nil {
 		return err
 	}
 
 	if !v {
-		return bot.cli.CreatePRComment(pr.Org, pr.Repo, pr.Number, fmt.Sprintf(
+		return bot.cli.CreatePRComment(org, repo, e.GetPRNumber(), fmt.Sprintf(
 			commentNoPermissionForLabel, commenter, "remove", approvedLabel,
 		))
 	}
 
-	return bot.cli.RemovePRLabel(pr.Org, pr.Repo, pr.Number, approvedLabel)
+	return bot.cli.RemovePRLabel(org, repo, e.GetPRNumber(), approvedLabel)
 }
