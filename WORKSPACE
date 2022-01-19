@@ -78,8 +78,8 @@ go_repository(
 go_repository(
     name = "com_gitee_openeuler_go_gitee",
     importpath = "gitee.com/openeuler/go-gitee",
-    sum = "h1:fdc3a6eHRIAcNzjuhWQXKmW5XXwWeaGu9rIzPjteCeg=",
-    version = "v0.0.0-20211126062945-e0d9fc01dbaa",
+    sum = "h1:Eix1vh/yfc9WpHNKAZrKmdV4oi83/hkKqAfTAdV09VE=",
+    version = "v0.0.0-20210824105152-bda4a7aaee37",
 )
 
 go_repository(
@@ -526,8 +526,8 @@ go_repository(
 go_repository(
     name = "com_github_opensourceways_community_robot_lib",
     importpath = "github.com/opensourceways/community-robot-lib",
-    sum = "h1:pA+E6UL0cwK01d73WYq8cSgkVxUo2LCPVpzzBP8KdNw=",
-    version = "v0.0.0-20211127100111-9925e60f0b14",
+    sum = "h1:+F518thKLJdB/ywb9N2aa3TwU8TmgZjBor0zS5QeHXc=",
+    version = "v0.0.0-20220118064921-28924d0a1246",
 )
 
 go_repository(
@@ -855,15 +855,15 @@ go_repository(
 go_repository(
     name = "org_golang_x_net",
     importpath = "golang.org/x/net",
-    sum = "h1:ADo5wSpq2gqaCGQWzk7S5vd//0iyyLeAratkEoG5dLE=",
-    version = "v0.0.0-20210520170846-37e1c6afe023",
+    sum = "h1:WtYZ93XtWSO5KlOMgPZu7hXY9WhMZpprvlm5VwvAl8c=",
+    version = "v0.0.0-20211201190559-0a0e4e1bb54c",
 )
 
 go_repository(
     name = "org_golang_x_oauth2",
     importpath = "golang.org/x/oauth2",
-    sum = "h1:Qmd2pbz05z7z6lm0DrgQVVPuBm92jqujBKMHMOlOQEw=",
-    version = "v0.0.0-20210819190943-2bc19b11175f",
+    sum = "h1:RerP+noqYHUQ8CMRcPlC2nvTa4dcBIjegkuWdcUDuqg=",
+    version = "v0.0.0-20211104180415-d3ed0bb246c8",
 )
 
 go_repository(
@@ -1557,4 +1557,11 @@ go_repository(
     importpath = "go.uber.org/zap",
     sum = "h1:ZZCA22JRF2gQE5FoNmhmrf7jeJJ2uhqDUNRYKm8dvmM=",
     version = "v1.15.0",
+)
+
+go_repository(
+    name = "com_github_opensourceways_go_gitee",
+    importpath = "github.com/opensourceways/go-gitee",
+    sum = "h1:iVRo+1ZmLYfDA6beHuDoJeteGtDqzUIbXN5EdQ9z0Bo=",
+    version = "v0.0.0-20220118023153-0c41490fb43b",
 )
